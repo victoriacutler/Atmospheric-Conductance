@@ -1,0 +1,119 @@
+---
+title: "Sensitivity Analyses"
+author: "Victoria Cutler & Gabrielle Smith"
+date: "2023-05-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+
+```{r}
+library(sensitivity)
+library(tidyverse)
+library(lhs)
+library(purrr)
+library(here)
+```
+
+## Source In Atmospheric Conductance Function
+
+```{r}
+source(here("R", "Catm.R"))
+```
+
+## Sensitivity Analysis of Atmospheric Conductance
+
+```{r compute parameter distributions}
+set.seed(123)  # for reproducibility
+
+# create dataframe of 100 random quantiles
+paramnames = c("height", "k_d", "k_o", "v")
+  # how many parameters
+nparam =  length(paramnames)
+  # how many samples
+nsample = 100
+  # dataframe 
+param_quantiles <- randomLHS(nsample, nparam)
+colnames(param_quantiles) = paramnames
+
+# initialize dataframe to place the random samples across quantiles
+params <- as.data.frame(matrix(nrow=nrow(param_quantiles), ncol=ncol(param_quantiles)))
+colnames(params) = paramnames
+
+# grab the random quantiles and place these into the initialized dataframe, given the parameter distributions
+  # v (windspeeds) are normally distributed with a mean of 250 cm/s with a standard deviation of 30 cm/s
+params[, 'v'] <- qnorm(param_quantiles[, 'v'], mean = 250, sd = 30)
+
+  # For vegetation height assume that height is somewhere between 9.5 and 10.5 m (but any value in that range is equally likely)
+params[, 'height'] <- qunif(param_quantiles[, 'height'], min = 9.5, max = 10.5)
+
+  # Kd and K0 are normally distributed with st dev of 1% of default values
+   # find default values for mean and st dev
+default_params <- formals(Catm)
+kd_mean = default_params$k_d
+kd_sd = 0.01 * kd_mean
+ko_mean = default_params$k_o
+ko_sd = 0.01 * ko_mean
+  # Ks
+params[, 'k_d'] <- qnorm(param_quantiles[, 'k_d'], mean = kd_mean, sd = kd_sd)
+params[, 'k_o'] <- qnorm(param_quantiles[, 'k_o'], mean = ko_mean, sd = ko_sd)
+```
+
+```{r run model for all sampled parameter values}
+# run conductance model from the sampled parameter distributions
+conductances <- params |> pmap(Catm, zm_add = 200)
+
+# turn into dataframe for plotting and correlation coefficients
+conductances_df <- tibble(id = names(conductances), conductances = conductances) %>%
+  unnest_longer(conductances)
+```
+
+```{r plot conductance given parameter uncertainty}
+
+# plot box plot
+ggplot(conductances_df, aes(x = "", y = conductances)) +
+  geom_boxplot() +
+  labs(x = NULL, 
+       y = "Atmospheric Conductance (mm/s)",
+       title = "Atmospheric Conductance (mm/s) Uncertainty")
+```
+
+```{r plot parameter and conductance relationships}
+# plot the scatter plots
+  # add the params and pivot longer for plotting
+conductances_and_params <- cbind.data.frame(conductances_df, params)
+conductances_and_params_longer <- pivot_longer(data = conductances_and_params, 
+                                               cols = c("height", "k_d", "k_o", "v"),
+                                               names_to = "params",
+                                               values_to = "paramvalues")
+
+# plot
+ggplot(conductances_and_params_longer, aes(x = paramvalues, y = conductances)) + 
+  geom_point() + 
+  facet_wrap(~params, scales="free", ncol=4) + # 4 params
+  labs(title = "The Effect of Parameter Value Uncertainty on Atmospheric Conductance (mm/s)",
+       y = "Parameter Values",
+       x = "Atmospheric Conductance")
+```
+
+```{r compute partial rank correlation coefficients}
+senresult_rank = pcc(params, conductances_df, rank = TRUE)
+
+#senresult_rank
+plot(senresult_rank)
+
+#str(senresult_rank)
+
+senresult_rank$PRCC
+```
+
+## Discussion 
+
+```{r discussion}
+# Discuss what your results tell you about how aerodynamic conductance. What does it suggest about what you should focus on if you want to reduce uncertainty in aerodymaic conductance estimates? Does this tell you anything about the sensitivity of plant water use to climate change?
+print("")
+```
