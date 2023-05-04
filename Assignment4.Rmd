@@ -73,7 +73,6 @@ conductances_df <- tibble(id = names(conductances), conductances = conductances)
 ```
 
 ```{r plot conductance given parameter uncertainty}
-
 # plot box plot
 ggplot(conductances_df, aes(x = "", y = conductances)) +
   geom_boxplot() +
@@ -82,7 +81,7 @@ ggplot(conductances_df, aes(x = "", y = conductances)) +
        title = "Atmospheric Conductance (mm/s) Uncertainty")
 ```
 
-```{r plot parameter and conductance relationships}
+```{r plot parameter and conductance relationships, fig.width = 12}
 # plot the scatter plots
   # add the params and pivot longer for plotting
 conductances_and_params <- cbind.data.frame(conductances_df, params)
@@ -92,7 +91,7 @@ conductances_and_params_longer <- pivot_longer(data = conductances_and_params,
                                                values_to = "paramvalues")
 
 # plot
-ggplot(conductances_and_params_longer, aes(x = paramvalues, y = conductances)) + 
+ggplot(conductances_and_params_longer, aes(x = paramvalues, y = conductances, color = params)) + 
   geom_point() + 
   facet_wrap(~params, scales="free", ncol=4) + # 4 params
   labs(title = "The Effect of Parameter Value Uncertainty on Atmospheric Conductance (mm/s)",
@@ -101,6 +100,7 @@ ggplot(conductances_and_params_longer, aes(x = paramvalues, y = conductances)) +
 ```
 
 ```{r compute partial rank correlation coefficients}
+#Combine parameter sets with rank coefficients
 senresult_rank = pcc(params, conductances_df, rank = TRUE)
 
 #senresult_rank
@@ -108,12 +108,19 @@ plot(senresult_rank)
 
 #str(senresult_rank)
 
+#which params is the result most sensitive to 
 senresult_rank$PRCC
 ```
 
 ## Discussion 
 
 ```{r discussion}
-# Discuss what your results tell you about how aerodynamic conductance. What does it suggest about what you should focus on if you want to reduce uncertainty in aerodymaic conductance estimates? Does this tell you anything about the sensitivity of plant water use to climate change?
-print("")
+
+# Discuss what your results tell you about how aerodynamic conductance. What does it suggest about what you should focus on if you want to reduce uncertainty in aerodymaic conductance estimates? 
+
+print("Based on the results of the sensitivity analysis, aerodynamic conductance is most sensitive to windspeed (cm/s) and vegetation height (cm). To reduce undertainty in aerodynamic conductance estimates, we should focus on improving our understanding and measurement of these parameters.")
+
+#Does this tell you anything about the sensitivity of plant water use to climate change?
+
+print("These sensitivty results suggest that plant water use is also sensitive to climate change. If climate change causes increased wind speeds (through increased atmospheric temperatures and subsequent changes inatmospheric circulation patterns) and/or decreases in vegetation height/cover, we would expect plant water use to increase because we anticipate that atmospheric conduction would increase. We would also expect the inverse to be true for decreased wind speeds and/or increases in vegetation height. Changes in plant water use can have impacts on plant growth and productivity, nutrient cycling, and carbon sequestration.")
 ```
